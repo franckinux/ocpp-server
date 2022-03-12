@@ -2,7 +2,6 @@ mod ocpp;
 
 #[macro_use]
 extern crate log;
-// extern crate tungstenite;
 
 use std::thread;
 use std::net::{TcpListener, TcpStream,};
@@ -52,7 +51,8 @@ fn handle_message(message: String, websocket: &mut WebSocket<TcpStream>) {
 }
 
 
-// https://github.com/websockets-rs/rust-websocket/blob/master/examples/server.rs
+// https://github.com/snapview/tungstenite-rs/blob/master/examples/autobahn-server.rs
+// https://github.com/snapview/tungstenite-rs/blob/master/examples/server.rs
 fn main() {
     env_logger::init();
     let opt = Opts::from_args();
@@ -60,7 +60,6 @@ fn main() {
     let url = format!("0.0.0.0:{}", opt.port);
     let server = TcpListener::bind(url).unwrap();
 
-    // https://github.com/snapview/tungstenite-rs/blob/master/examples/server.rs
     for stream in server.incoming() {
         // Spawn a new thread for each connection.
         thread::spawn(|| {
@@ -70,7 +69,6 @@ fn main() {
                 let msg = websocket.read_message().unwrap();
 
                 if msg.is_text() {
-                    // handle_message(Message::text(msg), websocket);
                     handle_message(msg.to_string(), &mut websocket);
                 }
             }
