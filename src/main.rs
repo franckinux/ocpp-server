@@ -13,12 +13,12 @@ use ocpp::{
     handle_request,
 };
 use structopt::StructOpt;
-use tungstenite::accept;
+use tungstenite::accept_hdr;
 use tungstenite::protocol::WebSocket;
 use tungstenite::Message;
 use tungstenite::{
     error::Result,
-    handshake::{server::{ServerHandshake, NoCallback}, HandshakeError},
+    handshake::{server::{ServerHandshake, NoCallback, Request, Response}, HandshakeError},
 };
 
 
@@ -33,20 +33,21 @@ struct Opts {
 }
 
 
-fn handle_message(message: String, websocket: &mut WebSocket<TcpStream>) {
-    info!("from {} << : {}", "a", message);
-    let req: OcppCall = serde_json::from_str(message.as_str()).unwrap();
+fn handle_message(websocket: &mut WebSocket<TcpStream>, message: &str, cp_name: &str) {
+    info!("from {} << : {}", cp_name, message);
+    let req: OcppCall = serde_json::from_str(message).unwrap();
 
     match handle_request(req.action.as_str(), req.payload) {
         Ok(resp) => {
             let response = format!(
-                "[{},\"{}\",{}]",
+                "[{},{},{}]",
                 OcppMessageTypeId::CallResult as i32,
                 req.unique_id,
                 resp,
             );
-            info!("to {} >> : {:?}", "a", response);
-            websocket.write_message(Message::text(response)).unwrap();
+            let response = Message::text(response);
+            info!("to {} >> : {}", cp_name, response);
+            websocket.write_message(response).unwrap();
         },
         Err(err) => {
             warn!("{}", err);
@@ -56,14 +57,19 @@ fn handle_message(message: String, websocket: &mut WebSocket<TcpStream>) {
 
 
 fn handle_client(stream: TcpStream) -> Result<(), HandshakeError<ServerHandshake<TcpStream, NoCallback>>> {
-    let mut websocket = accept(stream)?;
+    let mut path = String::new();
+    let callback = |req: &Request, response: Response| {
+        path = req.uri().path()[1..].to_string();
+        Ok(response)
+    };
+    let mut websocket = accept_hdr(stream, callback).unwrap();
 
-    info!("Ocpp server listening");
+    info!("Ocpp server listening to {} charge point", path);
     loop {
         let msg = websocket.read_message()?;
 
-        if msg.is_text() {
-            handle_message(msg.to_string(), &mut websocket);
+        if let Message::Text(msg) = msg {
+            handle_message(&mut websocket, msg.as_str(), path.as_str());
         }
     }
 }
