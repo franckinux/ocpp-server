@@ -16,6 +16,10 @@ use structopt::StructOpt;
 use tungstenite::accept;
 use tungstenite::protocol::WebSocket;
 use tungstenite::Message;
+use tungstenite::{
+    error::Result,
+    handshake::{server::{ServerHandshake, NoCallback}, HandshakeError},
+};
 
 
 // command line arguments to modify the server,
@@ -51,10 +55,24 @@ fn handle_message(message: String, websocket: &mut WebSocket<TcpStream>) {
 }
 
 
+fn handle_client(stream: TcpStream) -> Result<(), HandshakeError<ServerHandshake<TcpStream, NoCallback>>> {
+    let mut websocket = accept(stream)?;
+
+    info!("Ocpp server listening");
+    loop {
+        let msg = websocket.read_message()?;
+
+        if msg.is_text() {
+            handle_message(msg.to_string(), &mut websocket);
+        }
+    }
+}
+
+
 // https://github.com/snapview/tungstenite-rs/blob/master/examples/autobahn-server.rs
-// https://github.com/snapview/tungstenite-rs/blob/master/examples/server.rs
 fn main() {
     env_logger::init();
+
     let opt = Opts::from_args();
 
     let url = format!("0.0.0.0:{}", opt.port);
@@ -62,15 +80,16 @@ fn main() {
 
     for stream in server.incoming() {
         // Spawn a new thread for each connection.
-        thread::spawn(|| {
-            let mut websocket = accept(stream.unwrap()).unwrap();
-
-            loop {
-                let msg = websocket.read_message().unwrap();
-
-                if msg.is_text() {
-                    handle_message(msg.to_string(), &mut websocket);
-                }
+        thread::spawn(move || {
+            match stream {
+                Ok(stream) => {
+                    if let Err(e) = handle_client(stream) {
+                        println!("Error: {}", e);
+                    }
+                },
+                Err(e) => {
+                    error!("Error accepting stream: {}", e);
+                },
             }
         });
     }
