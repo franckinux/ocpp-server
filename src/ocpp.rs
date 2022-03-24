@@ -36,50 +36,38 @@ pub struct OcppCall {
 }
 
 
-fn on_boot_notification(payload: BootNotificationRequest) -> BootNotificationResponse {
-    BootNotificationResponse {
+fn on_boot_notification(payload: Value) -> Value {
+    let payload: BootNotificationRequest = serde_json::from_value(payload).unwrap();
+    let response = BootNotificationResponse {
         current_time: chrono::offset::Utc::now(),
         interval: 300,
         status: RegistrationStatus::Accepted,
-    }
+    };
+    serde_json::to_value(&response).unwrap()
 }
 
 
-fn on_heartbeat(payload: HeartbeatRequest) -> HeartbeatResponse {
-    HeartbeatResponse {
+fn on_heartbeat(payload: Value) -> Value {
+    let payload: HeartbeatRequest = serde_json::from_value(payload).unwrap();
+    let response = HeartbeatResponse {
         current_time: chrono::offset::Utc::now(),
-    }
+    };
+    serde_json::to_value(&response).unwrap()
 }
 
 
-fn on_status_notification(payload: StatusNotificationRequest) -> StatusNotificationResponse {
-    StatusNotificationResponse {}
+fn on_status_notification(payload: Value) -> Value {
+    let payload: StatusNotificationRequest = serde_json::from_value(payload).unwrap();
+    let response = StatusNotificationResponse {};
+    serde_json::to_value(&response).unwrap()
 }
 
 
-pub fn handle_request(action: &str, payload: Value) -> Result<String, String> {
+pub fn handle_request(action: &str, payload: Value) -> Result<Value, String> {
     match action {
-        "BootNotification" => {
-            let payload: BootNotificationRequest = serde_json::from_value(payload).unwrap();
-            let response = on_boot_notification(payload);
-            Ok(
-                serde_json::to_string(&response).unwrap()
-            )
-        },
-        "Heartbeat" => {
-            let payload: HeartbeatRequest = serde_json::from_value(payload).unwrap();
-            let response = on_heartbeat(payload);
-            Ok(
-                serde_json::to_string(&response).unwrap()
-            )
-        },
-        "StatusNotification" => {
-            let payload: StatusNotificationRequest = serde_json::from_value(payload).unwrap();
-            let response = on_status_notification(payload);
-            Ok(
-                serde_json::to_string(&response).unwrap()
-            )
-        },
+        "BootNotification" => Ok(on_boot_notification(payload)),
+        "Heartbeat" => Ok(on_heartbeat(payload)),
+        "StatusNotification" => Ok(on_status_notification(payload)),
         action => {
             Err(format!("unknown action {}", action))
         },
