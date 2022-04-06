@@ -40,7 +40,7 @@ fn handle_message(websocket: &mut WebSocket<TcpStream>, message: &str, cp_name: 
     match handle_request(req.action.as_str(), req.payload) {
         Ok(resp) => {
             let response = format!(
-                "[{},{},{}]",
+                "[{},\"{}\",{}]",
                 OcppMessageTypeId::CallResult as i32,
                 req.unique_id,
                 resp,
